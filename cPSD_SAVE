@@ -1,7 +1,8 @@
-% Calculate cPSD and save plot & mat file for mouse A (just PSD ver)
+% Calculate cPSD and save plot & mat file for mouse A (PSD and Raw)
 % Written by Jisoo Kim
 % hb_sptools is made by Hio-Been Han 
 % --> get files at https://github.com/Hio-Been?tab=repositories
+
 
 
 clc;
@@ -58,20 +59,26 @@ for trIdx=trialnum
         textname=['t' num2str(trIdx) '_A' num2str(mIdx)];
         save(fullfile(fname, textname),'EEG');
         
-        
-                figure(3) ;
+                        figure(3) ;
         for chanIdx = 1:4
-            subplot(4,1,chanIdx); 
+            subplot(4,2,chanIdx*2-1); 
             psd_to_plot = abs( EEG.PSD.data( :, :,  chanIdx))' .^2;
             imagesc( EEG.PSD.t, EEG.PSD.f, imgaussfilt( psd_to_plot, 2 )); axis xy
 
             xlabel('Time (sec)'); ylabel( 'Freq (Hz)');
-            ylim([0 75]);
+            ylim([0 60]);
             colorbar; colormap jet
             cnumber=colorscale(mIdx, chanIdx);
             caxis([ 0 cnumber] );
             xlim(x_limit)
             title(['Power spectogram of ' chanNames{chanIdx}],'fontsize',16)
+
+            subplot(4,2,chanIdx*2);
+            plot(EEG.times(1,:),EEG.data(chanIdx, :), 'k');
+            xlim(x_limit);
+            ylim([-500 500]);
+            title(['Raw data of ' chanNames{chanIdx}],'fontsize',16)
+            
 
             
             set(gcf,'units','normalized','outerposition',[0 0 1 1]);
