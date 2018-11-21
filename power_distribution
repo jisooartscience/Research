@@ -1,0 +1,82 @@
+clc;
+clear;
+close all;
+
+trialnum=3; %분석할 trial
+mouseIdx=2; %mouse number
+date=181003;
+x_limit = [0 120];  %time
+colorscale=[180 50 200 130; 100 60 100 80; 220 40 90 50];
+
+fname=['D:\JEELAB\EEG\EEG_RECORDING\BBCI\' num2str(date) '\matfile'];
+textname=['t' num2str(trialnum) '_A' num2str(mouseIdx)];
+load( [fname, '\' textname])
+
+%% 
+freq_band = [25 50];
+for ch=1:4;
+    EEG.BP.f25to50(ch,:) = zerofilt(double( EEG.data( ch, :)) , freq_band(1), freq_band(2), EEG.srate) ;
+end
+
+% trIdx=7; mIdx=2;
+status = mkdir(['D:\JEELAB\EEG\EEG_RECORDING\BBCI\' num2str(date) '\matfile']);
+
+fname=['D:\JEELAB\EEG\EEG_RECORDING\BBCI\' num2str(date) '\matfile'];
+textname=['t' num2str(trialnum) '_A' num2str(mouseIdx)];
+save(fullfile(fname, textname),'EEG');
+
+
+
+%%
+Beta.alldata=(abs(squeeze(EEG.PSD.data(:,:,4)))).^2;
+
+t_flee=[36 74]; % 여기만 수동으로 바꿔주기
+
+Beta.on_data=mean(real(Beta.alldata([t_flee(1)*10:t_flee(2)*10],:)));
+Beta.off_data=mean(real(Beta.alldata([1:t_flee(1)*10],:)));
+
+set(gcf,'units','normalized','outerposition',[0 0.3 0.4 0.7]); hold off;
+set(gca,'fontsize', 14); hold on;
+
+w1=0.5;
+bar(EEG.PSD.f, Beta.on_data,'FaceColor',[0.16 0.32 0.75 ]); hold on; grid on;
+xlim([1, 70]); ylim([0, 200]);
+% bar(EEG.PSD.f, Beta.off_data, w1, 'FaceColor',[0.99 0.42 0.62 ]); 
+bar(EEG.PSD.f, Beta.off_data, w1, 'r'); 
+% plot(EEG.PSD.f, Beta.off_data, 'k', 'linewidth', 2);
+% plot(EEG.PSD.f, Beta.on_data, 'b', 'linewidth', 2);
+
+p1=polyfit(EEG.PSD.f(30:200) ,Beta.off_data(30:200),10);
+x1=EEG.PSD.f(30:200);
+f1=polyval(p1,x1);
+plot(x1,f1,'linewidth', 2); hold on;
+
+p2=polyfit(EEG.PSD.f(30:200) ,Beta.on_data(30:200),10);
+f2=polyval(p2,x1);
+plot(x1,f2,'linewidth', 2);
+
+
+
+x_intersect = fzero(@(x1) polyval(p2-p1,x1),20);
+y_intersect = polyval(p2,x_intersect);
+plot(x_intersect,y_intersect,'y*', 'markersize', 10); hold on;
+text(x_intersect-2,y_intersect+5, ['[' num2str(round(x_intersect,1)) ' , ' num2str(round(y_intersect,1)) ']'] );
+
+% p=polyfit(EEG.PSD.f ,Beta.off_data,100);
+% x1=EEG.PSD.f;
+% f1=polyval(p,x1);
+% plot(x1,f1,'linewidth', 2);
+
+
+title(['Power Distribution of BLA    -' ,...
+    num2str(date) ' trial' num2str(trialnum) ' A' num2str(mouseIdx)], 'fontsize', 18);
+xlabel(['Frequency(Hz)'], 'fontsize', 16);
+ylabel(['Mean of Power(\muV)'], 'fontsize', 16); hold off;
+legend(['Flee (' num2str(t_flee(1)) '~' num2str(t_flee(2)) 'sec)'], ['Relax (0~' num2str(t_flee(1)) 'sec)']);
+
+%%
+status = mkdir(['D:\JEELAB\EEG\EEG_RESULT\BBCI_TEST\' num2str(date)]);
+fname=['D:\JEELAB\EEG\EEG_RESULT\BBCI_TEST\' num2str(date)];
+textname=['t' num2str(trialnum) '_A' num2str(mouseIdx) 'Distribution Intersect'];
+saveas(gca, fullfile(fname, textname), 'fig');
+saveas(gca, fullfile(fname, textname), 'jpg');
