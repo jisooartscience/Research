@@ -1,0 +1,91 @@
+% Calculate cPSD and save plot & mat file for mouse A (just PSD ver)
+% Written by Jisoo Kim
+% hb_sptools is made by Hio-Been Han 
+% --> get files at https://github.com/Hio-Been?tab=repositories
+
+
+clc;
+clear;
+
+trialnum=5; %분석할 trial
+mouseIdx=1 %mouse number
+date=180801;
+x_limit = [0 200];  %time
+colorscale=[180 50 200 130; 120 70 120 70; 220 50 100 70; 35 35 35 35];
+
+
+%% DATA Acquisition
+chanNames={'HPC', 'PFC', 'MDT', 'BLA'};
+for trIdx=trialnum
+    for mIdx=mouseIdx
+        
+        filename=['D:\JEELAB\EEG\EEG_RECORDING\BBCI\' num2str(date) '\python\t' num2str(trIdx) '_A' num2str(mIdx)];
+        A=readtable(filename ,'Delimiter','space');
+        MyArray=table2array(A);
+        EEG.data=MyArray.';
+        EEG.data=EEG.data*5000/32767;
+        addpath hb_sptools
+        chanList = 1:size(EEG.data,1);
+
+        % making data format
+        EEG.srate=1000;
+        EEG.npts = size( EEG.data, 2);
+        dt = 1/EEG.srate; 
+        numberofdata=numel(EEG.data)/4;
+        duration=numberofdata/EEG.srate;
+        EEG.times = dt:dt:EEG.npts/EEG.srate;
+        EEG.fname = [num2str(date) ' t' num2str(trIdx) '_A' num2str(mIdx)]
+
+        % Spectrogram
+        calc_option = 'cPSD';
+        chan_list = 1:4;
+        win_size = 1024*2;
+        t_resolution = 0.1;
+        EEG=hb_spectrogram( EEG, calc_option, chan_list, win_size, t_resolution );
+        
+%         freq_band = [4 12 20 40 40 70 70 120];
+% 
+%         for ch=1:4;
+%             EEG.BP.theta(ch,:) = zerofilt(double( EEG.data( ch, :)) , freq_band(1), freq_band(2), EEG.srate) ;
+%             EEG.BP.beta(ch,:) = zerofilt(double( EEG.data( ch, :)) , freq_band(3), freq_band(4), EEG.srate) ;
+%             EEG.BP.sgamma(ch,:) = zerofilt(double( EEG.data( ch, :)) , freq_band(5), freq_band(6), EEG.srate) ;
+%             EEG.BP.fgamma(ch,:) = zerofilt(double( EEG.data( ch, :)) , freq_band(7), freq_band(8), EEG.srate) ;
+%         end
+
+        status = mkdir(['D:\JEELAB\EEG\EEG_RECORDING\BBCI\' num2str(date) '\matfile']);
+        
+        fname=['D:\JEELAB\EEG\EEG_RECORDING\BBCI\' num2str(date) '\matfile'];
+        textname=['t' num2str(trIdx) '_A' num2str(mIdx)];
+        save(fullfile(fname, textname),'EEG');
+        
+        
+                figure(3) ;
+        for chanIdx = 1:4
+            subplot(4,1,chanIdx); 
+            psd_to_plot = abs( EEG.PSD.data( :, :,  chanIdx))' .^2;
+            imagesc( EEG.PSD.t, EEG.PSD.f, imgaussfilt( psd_to_plot, 2 )); axis xy
+
+            xlabel('Time (sec)'); ylabel( 'Freq (Hz)');
+            ylim([0 75]);
+            colorbar; colormap jet
+            cnumber=colorscale(mIdx, chanIdx);
+            caxis([ 0 cnumber] );
+            xlim(x_limit)
+            title(['Power spectogram of ' chanNames{chanIdx}],'fontsize',16)
+
+            
+            set(gcf,'units','normalized','outerposition',[0 0 1 1]);
+        end
+        
+        
+        status = mkdir(['D:\JEELAB\EEG\EEG_RESULT\BBCI_TEST\' num2str(date)]);
+        fname=['D:\JEELAB\EEG\EEG_RESULT\BBCI_TEST\' num2str(date)];
+        textname=['t' num2str(trIdx) '_A' num2str(mIdx)];
+        saveas(gca, fullfile(fname, textname), 'fig');
+        saveas(gca, fullfile(fname, textname), 'jpg');
+        
+        
+        
+        
+    end
+end
