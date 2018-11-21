@@ -1,0 +1,135 @@
+clc;
+clear;
+close all;
+
+trialnum=3; %분석할 trial
+mouseIdx=2; %mouse number
+date=181003;
+x_limit = [0 120];  %time
+colorscale=[180 50 200 130; 100 60 100 80; 220 40 90 50];
+
+fname=['D:\JEELAB\EEG\EEG_RECORDING\BBCI\' num2str(date) '\matfile'];
+textname=['t' num2str(trialnum) '_A' num2str(mouseIdx)];
+load( [fname, '\' textname])
+
+%% 
+freq_band = [25 50];
+for ch=1:4;
+    EEG.BP.f25to50(ch,:) = zerofilt(double( EEG.data( ch, :)) , freq_band(1), freq_band(2), EEG.srate) ;
+end
+
+% trIdx=7; mIdx=2;
+status = mkdir(['D:\JEELAB\EEG\EEG_RECORDING\BBCI\' num2str(date) '\matfile']);
+
+fname=['D:\JEELAB\EEG\EEG_RECORDING\BBCI\' num2str(date) '\matfile'];
+textname=['t' num2str(trialnum) '_A' num2str(mouseIdx)];
+save(fullfile(fname, textname),'EEG');
+
+%%
+
+freq_band= [25 50];
+% t_flee=[76 130]; 
+t_flee=[36 74];
+
+
+% Beta만 걸러내기
+f1=find(EEG.PSD.f>=freq_band(1),1);
+f2=find(EEG.PSD.f>=freq_band(2),1);
+
+Amyg.alldata=(abs(squeeze(EEG.PSD.data(:,:,4)))).^2;
+
+% 시간으로 나눠주기. on일때와 on아닐때로
+Beta.alldata=Amyg.alldata(:,[f1:f2]);
+Beta.on_data=real(Beta.alldata([t_flee(1).*10:t_flee(2).*10-1], :));
+Beta.off_data=real(Beta.alldata([5:t_flee(1).*10-1],:));
+
+
+
+% 500msec(5개씩) 평균내기
+
+len_on_data=(size(Beta.on_data,1)./5);
+len_off_data=(size(Beta.off_data,1)./5);
+
+for on=1:len_on_data;
+    Beta.on_5mean(on,:)=mean(Beta.on_data([5*on-4:5*on],:));
+end
+for off=1:len_off_data;
+    Beta.off_5mean(off,:)=mean(Beta.off_data([5*off-4:5*off],:));
+end
+
+Beta.on_final=mean(Beta.on_5mean,2);
+Beta.off_final=mean(Beta.off_5mean,2);
+
+%%
+
+close all;
+set(gcf,'units','normalized','outerposition',[0 0.4 0.4 0.6]); hold off;
+set(gca,'fontsize', 14); hold on;
+
+
+h1=histogram(Beta.on_final,50,'Facecolor', 'r'); hold on; grid on;
+h2=histogram(Beta.off_final,50,'Facecolor',[0.16 0.32 0.75 ]); hold on;
+h1.Normalization = 'probability';
+h1.BinWidth = 1.5;
+h2.Normalization = 'probability';
+h2.BinWidth = 1.5;
+
+legend(['Flee (' num2str(t_flee(1)) '~' num2str(t_flee(2)) 'sec)'], ['Relax (0~' num2str(t_flee(1)) 'sec)']);
+
+title(['Power Probability of BLA    -' ,...
+    num2str(date) ' trial' num2str(trialnum) ' A' num2str(mouseIdx)], 'fontsize', 18);
+xlabel(['Power(\muV)'], 'fontsize', 16);
+ylabel(['Probability'], 'fontsize', 16);
+legend(['Flee (' num2str(t_flee(1)) '~' num2str(t_flee(2)) 'sec)'], ['Baseline (0~' num2str(t_flee(1)) 'sec)']);
+% xlim([0, 45]);
+% ylim([0, 0.3]);
+
+
+
+% 확률분포 그래프 그리기
+x_on=Beta.on_final
+pd=fitdist(x_on, 'Normal')
+m=mean(pd)
+x_on_pdf = [1:0.1:50];
+y=pdf(pd,x_on_pdf);
+line(x_on_pdf,y, 'color','r', 'linewidth', 1.5);
+
+x_off=Beta.off_final
+pd2=fitdist(x_off, 'Normal')
+m2=mean(pd2)
+x_off_pdf = [1:0.1:50];
+y2=pdf(pd2,x_off_pdf);
+line(x_off_pdf,y2, 'color',[0.16 0.32 0.75 ],'linewidth', 1.5);
+
+
+
+
+% 20%구간 계산
+X20on=real(icdf(pd,0.2));
+Y20on=y(round(X20on*10));
+m_Y20on=Y20on-0.003
+
+plot([X20on, X20on],[0, m_Y20on],'k', 'linewidth', 2); hold on;
+plot(X20on, m_Y20on,'ko', 'markersize', 5, 'MarkerEdgeColor','k','MarkerFaceColor','r'); hold on;
+text(X20on-1,Y20on+0.001 ,['20%'],'fontsize',10,'fontweight','bold');
+text(X20on-1,-0.004 ,[ num2str(round(X20on,2))],'fontsize',8,'fontweight', 'normal');
+
+% 10% 구간 계산
+X10on=real(icdf(pd,0.1));
+Y10on=y(round(X10on*10));
+m_Y10on=Y10on-0.002
+
+hold on;
+plot([X10on, X10on],[0, m_Y10on],'k', 'linewidth', 2); hold on;
+plot(X10on, m_Y10on,'ko', 'markersize', 5, 'MarkerEdgeColor','k','MarkerFaceColor','r'); hold on;
+text(X10on-1,Y10on+0.001 ,['10%'],'fontsize',10,'fontweight','bold' );
+text(X10on-1,-0.004 ,[ num2str(round(X10on,2))],'fontsize',8,'fontweight','normal');
+
+
+% 
+% 
+% status = mkdir(['D:\JEELAB\EEG\EEG_RESULT\BBCI_TEST\' num2str(date)]);
+% fname=['D:\JEELAB\EEG\EEG_RESULT\BBCI_TEST\' num2str(date)];
+% textname=['t' num2str(trialnum) '_A' num2str(mouseIdx) 'Probability2'];
+% saveas(gca, fullfile(fname, textname), 'fig');
+% saveas(gca, fullfile(fname, textname), 'jpg');
